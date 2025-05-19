@@ -34,6 +34,10 @@ class SnapmakerProbePlugin(octoprint.plugin.StartupPlugin,
                           octoprint.plugin.AssetPlugin,
                           octoprint.plugin.BlueprintPlugin):
     
+    def is_blueprint_csrf_protected(self):
+        return True  # Enable CSRF protection by default
+
+
     def capture_current_image(self, name):
         """Capture an image using OctoPrint's configured webcam"""
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
