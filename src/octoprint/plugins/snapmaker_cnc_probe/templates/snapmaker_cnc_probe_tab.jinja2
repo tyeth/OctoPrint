@@ -1,0 +1,41 @@
+<div class="row-fluid" id="snapmaker_cnc_probe">
+    <div class="span12">
+        <h3>Snapmaker Probe and Alignment</h3>
+        
+        <div class="control-group">
+            <button class="btn btn-primary" data-bind="click: captureMultiAngleImages, enable: !isBusy()">
+                Capture Multi-Angle Images
+            </button>
+            <span data-bind="visible: isBusy" class="text-info">
+                <i class="fa fa-spinner fa-spin"></i> Working...
+            </span>
+        </div>
+        
+        <div class="control-group">
+            <label>Upload Fusion 360 Reference Image:</label>
+            <input type="file" accept="image/*" data-bind="event: { change: uploadReferenceImage }, enable: !isBusy()">
+        </div>
+        
+        <div class="row-fluid" data-bind="visible: hasImages">
+            <div class="span4" data-bind="with: image0Deg">
+                <h4>0° Position</h4>
+                <img data-bind="attr: { src: url }" style="max-width: 100%">
+            </div>
+            <div class="span4" data-bind="with: image120Deg">
+                <h4>120° CCW Position</h4>
+                <img data-bind="attr: { src: url }" style="max-width: 100%">
+            </div>
+            <div class="span4" data-bind="with: image60Deg">
+                <h4>60° CW Position</h4>
+                <img data-bind="attr: { src: url }" style="max-width: 100%">
+            </div>
+        </div>
+        
+        <div class="row-fluid" data-bind="visible: hasFusionImage">
+            <div class="span12">
+                <h4>Fusion 360 Reference</h4>
+                <img data-bind="attr: { src: fusionImageUrl }" style="max-width: 100%">
+            </div>
+        </div>
+    </div>
+</div>

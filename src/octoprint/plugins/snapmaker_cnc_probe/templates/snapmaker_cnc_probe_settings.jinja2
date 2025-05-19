@@ -1,0 +1,45 @@
+<h3>{{ _('Snapmaker CNC Probe Settings') }}</h3>
+
+<form class="form-horizontal">
+    <div class="control-group">
+        <label class="control-label">{{ _('Camera Module') }}</label>
+        <div class="controls">
+            <select data-bind="value: settings.plugins.snapmaker_cnc_probe.camera_module">
+                <option value="opencv">OpenCV</option>
+                <option value="picamera">PiCamera</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="control-group" data-bind="visible: settings.plugins.snapmaker_cnc_probe.camera_module() === 'opencv'">
+        <label class="control-label">{{ _('Camera Index') }}</label>
+        <div class="controls">
+            <input type="number" min="0" class="input-mini" data-bind="value: settings.plugins.snapmaker_cnc_probe.camera_index">
+            <span class="help-block">{{ _('Index of the camera to use (usually 0 for built-in)') }}</span>
+        </div>
+    </div>
+    
+    <div class="control-group">
+        <label class="control-label">{{ _('Image Quality') }}</label>
+        <div class="controls">
+            <input type="number" min="1" max="100" class="input-mini" data-bind="value: settings.plugins.snapmaker_cnc_probe.image_quality">
+            <span class="help-block">{{ _('JPEG quality (1-100)') }}</span>
+        </div>
+    </div>
+    
+    <div class="control-group">
+        <label class="control-label">{{ _('Gauge Serial Port') }}</label>
+        <div class="controls">
+            <input type="text" class="input-large" data-bind="value: settings.plugins.snapmaker_cnc_probe.gauge_port">
+            <span class="help-block">{{ _('Serial port for the digital gauge (e.g., /dev/ttyUSB0)') }}</span>
+        </div>
+    </div>
+    
+    <div class="control-group">
+        <label class="control-label">{{ _('Gauge Baud Rate') }}</label>
+        <div class="controls">
+            <input type="number" class="input-medium" data-bind="value: settings.plugins.snapmaker_cnc_probe.gauge_baud">
+            <span class="help-block">{{ _('Baud rate for serial communication (usually 9600)') }}</span>
+        </div>
+    </div>
+</form>
