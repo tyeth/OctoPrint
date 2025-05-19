@@ -402,7 +402,8 @@ Where:
             return {"error": str(e)}
             
     # API endpoints
-    @octoprint.plugin.BlueprintPlugin.route("/capture", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.route("/snapmaker_cnc_probe/capture", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.csrf_exempt
     def api_capture_images(self):
         try:
             # Verify that OctoPrint has a webcam configured
@@ -425,13 +426,13 @@ Where:
                 })
             
             # Convert file paths to URLs for the frontend
-            image_urls = [f"/plugin/snapmaker_cnc_probe/image/{os.path.basename(img)}" for img in images]
+            image_urls = [f"/plugin/snapmaker_cnc_probe/snapmaker_cnc_probe/image/{os.path.basename(img)}" for img in images]
             return jsonify({"status": "success", "images": image_urls})
         except Exception as e:
             self._logger.exception(f"Error in capture: {str(e)}")
             return jsonify({"status": "error", "message": str(e)})
 
-    @octoprint.plugin.BlueprintPlugin.route("/image/<filename>", methods=["GET"])
+    @octoprint.plugin.BlueprintPlugin.route("/snapmaker_cnc_probe/image/<filename>", methods=["GET"])
     def get_image(self, filename):
         # Serve image files from the plugin's image folder
         safe_filename = secure_filename(filename)
@@ -440,7 +441,7 @@ Where:
             abort(404)
         return send_from_directory(self.get_image_folder(), safe_filename)
     
-    @octoprint.plugin.BlueprintPlugin.route("/upload_reference", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.route("/snapmaker_cnc_probe/upload_reference", methods=["POST"])
     @octoprint.plugin.BlueprintPlugin.csrf_exempt
     def api_upload_reference(self):
         if not "file" in request.files:
@@ -455,12 +456,13 @@ Where:
             path = os.path.join(self.get_image_folder(), filename)
             file.save(path)
             
-            url = f"/plugin/snapmaker_cnc_probe/image/{filename}"
+            url = f"/plugin/snapmaker_cnc_probe/snapmaker_cnc_probe/image/{filename}"
             return jsonify({"status": "success", "url": url, "path": path})
         
         return jsonify({"status": "error", "message": "Failed to save file"})
     
-    @octoprint.plugin.BlueprintPlugin.route("/analyze", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.route("/snapmaker_cnc_probe/analyze", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.csrf_exempt
     def api_analyze_images(self):
         """Analyze images with both LLM models and determine alignment angle"""
         try:
@@ -515,7 +517,8 @@ Where:
             self._logger.exception(f"Error in analyze endpoint: {str(e)}")
             return jsonify({"status": "error", "message": str(e)})
     
-    @octoprint.plugin.BlueprintPlugin.route("/apply_rotation", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.route("/snapmaker_cnc_probe/apply_rotation", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.csrf_exempt
     def api_apply_rotation(self):
         """Apply the calculated rotation to align the part"""
         try:
@@ -551,7 +554,8 @@ Where:
             self._logger.exception(f"Error applying rotation: {str(e)}")
             return jsonify({"status": "error", "message": str(e)})
     
-    @octoprint.plugin.BlueprintPlugin.route("/reset_b_axis", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.route("/snapmaker_cnc_probe/reset_b_axis", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.csrf_exempt
     def api_reset_b_axis(self):
         """Reset B-axis to stored home position"""
         try:

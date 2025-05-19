@@ -37,6 +37,7 @@ $(function() {
             $.ajax({
                 url: API_BASEURL + "plugin/snapmaker_cnc_probe/capture",
                 type: "POST",
+                headers: {"X-CSRF-Token": UI_API_KEY},
                 dataType: "json",
                 success: function(response) {
                     if (response.status === "success" && response.images.length === 3) {
@@ -133,6 +134,7 @@ $(function() {
             $.ajax({
                 url: API_BASEURL + "plugin/snapmaker_cnc_probe/analyze",
                 type: "POST",
+                headers: {"X-CSRF-Token": UI_API_KEY},
                 dataType: "json",
                 contentType: "application/json",
                 data: JSON.stringify(data),
@@ -240,6 +242,7 @@ $(function() {
             $.ajax({
                 url: API_BASEURL + "plugin/snapmaker_cnc_probe/apply_rotation",
                 type: "POST",
+                headers: {"X-CSRF-Token": UI_API_KEY},
                 dataType: "json",
                 contentType: "application/json",
                 data: JSON.stringify({ angle: self.alignmentAngle() }),
@@ -281,6 +284,7 @@ $(function() {
             $.ajax({
                 url: API_BASEURL + "plugin/snapmaker_cnc_probe/reset_b_axis",
                 type: "POST",
+                headers: {"X-CSRF-Token": UI_API_KEY},
                 dataType: "json",
                 contentType: "application/json",
                 data: JSON.stringify({}),
