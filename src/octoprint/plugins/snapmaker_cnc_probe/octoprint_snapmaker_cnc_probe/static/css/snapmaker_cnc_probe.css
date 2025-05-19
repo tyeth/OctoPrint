@@ -1,0 +1,9 @@
+#snapmaker_cnc_probe img {
+    border: 1px solid #ddd;
+    padding: 5px;
+    margin-bottom: 10px;
+}
+
+#snapmaker_cnc_probe .image-container {
+    text-align: center;
+}

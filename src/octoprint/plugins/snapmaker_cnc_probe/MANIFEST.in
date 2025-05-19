@@ -1,0 +1,3 @@
+include README.md
+recursive-include octoprint_snapmaker_cnc_probe/templates *
+recursive-include octoprint_snapmaker_cnc_probe/static *

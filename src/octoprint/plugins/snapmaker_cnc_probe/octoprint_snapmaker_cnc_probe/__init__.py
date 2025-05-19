@@ -74,32 +74,32 @@ class SnapmakerProbePlugin(octoprint.plugin.StartupPlugin,
         """Capture images at multiple B-axis rotations"""
         images = []
         
-        # Step 1: Capture image at current position (assumed to be 0Â°)
+        # Step 1: Capture image at current position (assumed to be 0°)
         filepath = self.capture_current_image("angle_0")
         if filepath:
             images.append(filepath)
-            self._logger.info("Captured image at 0Â°")
+            self._logger.info("Captured image at 0°")
         
-        # Step 2: Rotate B-axis 120Â° CCW and capture
+        # Step 2: Rotate B-axis 120° CCW and capture
         self._printer.commands("G0 B-120")
         time.sleep(3)  # Allow more time for rotation to complete
         filepath = self.capture_current_image("angle_120ccw")
         if filepath:
             images.append(filepath)
-            self._logger.info("Captured image at 120Â° CCW")
+            self._logger.info("Captured image at 120° CCW")
         
-        # Step 3: Rotate B-axis 180Â° CW and capture
+        # Step 3: Rotate B-axis 180° CW and capture
         self._printer.commands("G0 B60")
         time.sleep(3)
         filepath = self.capture_current_image("angle_60cw")
         if filepath:
             images.append(filepath)
-            self._logger.info("Captured image at 60Â° CW")
+            self._logger.info("Captured image at 60° CW")
         
-        # Step 4: Return to 0Â°
+        # Step 4: Return to 0°
         self._printer.commands("G0 B0")
         time.sleep(2)
-        self._logger.info("Returned to 0Â°")
+        self._logger.info("Returned to 0°")
         
         return images
     
@@ -288,15 +288,15 @@ Where:
         
         # Build the request payload
         content = [
-            {"type": "text", "text": "Analyze these images to determine the rotational alignment needed for the part. The first image is the Fusion 360 reference showing the desired orientation. The subsequent three images show the physical part at 0Â°, -120Â°, and 60Â° B-axis rotations."},
+            {"type": "text", "text": "Analyze these images to determine the rotational alignment needed for the part. The first image is the Fusion 360 reference showing the desired orientation. The subsequent three images show the physical part at 0°, -120°, and 60° B-axis rotations."},
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": encoded_fusion}},
             {"type": "text", "text": "Fusion 360 reference image (target orientation)"},
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": encoded_part_images[0]}},
-            {"type": "text", "text": "Physical part at 0Â° B-axis rotation"},
+            {"type": "text", "text": "Physical part at 0° B-axis rotation"},
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": encoded_part_images[1]}},
-            {"type": "text", "text": "Physical part at -120Â° B-axis rotation"},
+            {"type": "text", "text": "Physical part at -120° B-axis rotation"},
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": encoded_part_images[2]}},
-            {"type": "text", "text": "Physical part at 60Â° B-axis rotation"},
+            {"type": "text", "text": "Physical part at 60° B-axis rotation"},
         ]
         
         headers = {
