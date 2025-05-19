@@ -34,6 +34,9 @@ class SnapmakerProbePlugin(octoprint.plugin.StartupPlugin,
                           octoprint.plugin.AssetPlugin,
                           octoprint.plugin.BlueprintPlugin):
     
+    def is_blueprint_csrf_protected(self):
+        return True  # Enable CSRF protection by default
+    
     def capture_current_image(self, name):
         """Capture an image using OctoPrint's configured webcam"""
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -74,32 +77,32 @@ class SnapmakerProbePlugin(octoprint.plugin.StartupPlugin,
         """Capture images at multiple B-axis rotations"""
         images = []
         
-        # Step 1: Capture image at current position (assumed to be 0°)
+        # Step 1: Capture image at current position (assumed to be 0Â°)
         filepath = self.capture_current_image("angle_0")
         if filepath:
             images.append(filepath)
-            self._logger.info("Captured image at 0°")
+            self._logger.info("Captured image at 0Â°")
         
-        # Step 2: Rotate B-axis 120° CCW and capture
+        # Step 2: Rotate B-axis 120Â° CCW and capture
         self._printer.commands("G0 B-120")
         time.sleep(3)  # Allow more time for rotation to complete
         filepath = self.capture_current_image("angle_120ccw")
         if filepath:
             images.append(filepath)
-            self._logger.info("Captured image at 120° CCW")
+            self._logger.info("Captured image at 120Â° CCW")
         
-        # Step 3: Rotate B-axis 180° CW and capture
+        # Step 3: Rotate B-axis 180Â° CW and capture
         self._printer.commands("G0 B60")
         time.sleep(3)
         filepath = self.capture_current_image("angle_60cw")
         if filepath:
             images.append(filepath)
-            self._logger.info("Captured image at 60° CW")
+            self._logger.info("Captured image at 60Â° CW")
         
-        # Step 4: Return to 0°
+        # Step 4: Return to 0Â°
         self._printer.commands("G0 B0")
         time.sleep(2)
-        self._logger.info("Returned to 0°")
+        self._logger.info("Returned to 0Â°")
         
         return images
     
@@ -200,7 +203,7 @@ class SnapmakerProbePlugin(octoprint.plugin.StartupPlugin,
             "gauge_baud": 9600,
             "llm_api_key": "",
             "llm_api_url": "https://api.anthropic.com/v1/messages",
-            "llm_model": "claude-3-haiku-20240307",
+            "llm_model": "claude-3-7-sonnet-20250219",  # Updated default model
             "b_axis_home_position": 0,  # Store the home position of B axis
         }
     
@@ -244,20 +247,70 @@ class SnapmakerProbePlugin(octoprint.plugin.StartupPlugin,
             self._logger.error(f"Error encoding image {image_path}: {str(e)}")
             return None
     
-    def analyze_images_with_llm(self, part_images, fusion_image):
+    def analyze_images_with_both_models(self, part_images, fusion_image):
         """
-        Use LLM to analyze images and determine rotation alignment
+        Analyze images with both Claude 3 Opus and Claude 3.7 Sonnet models
         
         Args:
             part_images: List of paths to multi-angle part images
             fusion_image: Path to Fusion 360 reference image
             
         Returns:
+            Dict with results from both models
+        """
+        # Create threads to run analyses in parallel
+        opus_thread = threading.Thread(
+            target=self._threaded_analyze, 
+            args=(part_images, fusion_image, "claude-3-opus-20240229", "opus_result")
+        )
+        
+        sonnet_thread = threading.Thread(
+            target=self._threaded_analyze, 
+            args=(part_images, fusion_image, "claude-3-7-sonnet-20250219", "sonnet_result")
+        )
+        
+        # Start threads
+        opus_thread.start()
+        sonnet_thread.start()
+        
+        # Wait for threads to complete
+        opus_thread.join()
+        sonnet_thread.join()
+        
+        # Get results
+        opus_result = getattr(self, "opus_result", {"error": "Analysis failed"})
+        sonnet_result = getattr(self, "sonnet_result", {"error": "Analysis failed"})
+        
+        return {
+            "opus": opus_result,
+            "sonnet": sonnet_result
+        }
+
+    def _threaded_analyze(self, part_images, fusion_image, model_name, result_attr):
+        """Thread worker for parallel model analysis"""
+        result = self.analyze_images_with_llm(part_images, fusion_image, model_name)
+        setattr(self, result_attr, result)
+    
+    def analyze_images_with_llm(self, part_images, fusion_image, model=None):
+        """
+        Use LLM to analyze images and determine rotation alignment
+        
+        Args:
+            part_images: List of paths to multi-angle part images
+            fusion_image: Path to Fusion 360 reference image
+            model: Optional model name override
+            
+        Returns:
             Dict with alignment angle and confidence
         """
         api_key = self._settings.get(["llm_api_key"])
         api_url = self._settings.get(["llm_api_url"])
-        model = self._settings.get(["llm_model"])
+        
+        # Use provided model or fall back to settings
+        if not model:
+            model = self._settings.get(["llm_model"])
+        
+        self._logger.info(f"Using model: {model} for analysis")
         
         if not api_key:
             self._logger.error("No LLM API key configured in settings")
@@ -288,15 +341,15 @@ Where:
         
         # Build the request payload
         content = [
-            {"type": "text", "text": "Analyze these images to determine the rotational alignment needed for the part. The first image is the Fusion 360 reference showing the desired orientation. The subsequent three images show the physical part at 0°, -120°, and 60° B-axis rotations."},
+            {"type": "text", "text": "Analyze these images to determine the rotational alignment needed for the part. The first image is the Fusion 360 reference showing the desired orientation. The subsequent three images show the physical part at 0Â°, -120Â°, and 60Â° B-axis rotations."},
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": encoded_fusion}},
             {"type": "text", "text": "Fusion 360 reference image (target orientation)"},
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": encoded_part_images[0]}},
-            {"type": "text", "text": "Physical part at 0° B-axis rotation"},
+            {"type": "text", "text": "Physical part at 0Â° B-axis rotation"},
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": encoded_part_images[1]}},
-            {"type": "text", "text": "Physical part at -120° B-axis rotation"},
+            {"type": "text", "text": "Physical part at -120Â° B-axis rotation"},
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": encoded_part_images[2]}},
-            {"type": "text", "text": "Physical part at 60° B-axis rotation"},
+            {"type": "text", "text": "Physical part at 60Â° B-axis rotation"},
         ]
         
         headers = {
@@ -313,7 +366,7 @@ Where:
         }
         
         try:
-            self._logger.info("Sending images to LLM for analysis")
+            self._logger.info(f"Sending images to {model} for analysis")
             response = requests.post(api_url, headers=headers, json=payload)
             
             if response.status_code == 200:
@@ -333,19 +386,19 @@ Where:
                                 if json_start >= 0 and json_end > json_start:
                                     json_str = text_content[json_start:json_end]
                                     result = json.loads(json_str)
-                                    self._logger.info(f"LLM analysis result: {result}")
+                                    self._logger.info(f"LLM analysis result ({model}): {result}")
                                     return result
                             except json.JSONDecodeError:
-                                self._logger.error("Failed to parse JSON from LLM response")
+                                self._logger.error(f"Failed to parse JSON from LLM response ({model})")
                 
-                self._logger.error("No valid JSON found in LLM response")
+                self._logger.error(f"No valid JSON found in LLM response ({model})")
                 return {"error": "Failed to parse response from LLM"}
             else:
-                self._logger.error(f"LLM API request failed: {response.status_code} - {response.text}")
+                self._logger.error(f"LLM API request failed ({model}): {response.status_code} - {response.text}")
                 return {"error": f"API request failed with status {response.status_code}"}
                 
         except Exception as e:
-            self._logger.exception(f"Exception during LLM analysis: {str(e)}")
+            self._logger.exception(f"Exception during LLM analysis ({model}): {str(e)}")
             return {"error": str(e)}
             
     # API endpoints
@@ -388,6 +441,7 @@ Where:
         return send_from_directory(self.get_image_folder(), safe_filename)
     
     @octoprint.plugin.BlueprintPlugin.route("/upload_reference", methods=["POST"])
+    @octoprint.plugin.BlueprintPlugin.csrf_exempt
     def api_upload_reference(self):
         if not "file" in request.files:
             return jsonify({"status": "error", "message": "No file provided"})
@@ -408,7 +462,7 @@ Where:
     
     @octoprint.plugin.BlueprintPlugin.route("/analyze", methods=["POST"])
     def api_analyze_images(self):
-        """Analyze images with LLM and determine alignment angle"""
+        """Analyze images with both LLM models and determine alignment angle"""
         try:
             data = request.json
             
@@ -441,19 +495,20 @@ Where:
                     "message": f"Fusion reference image not found: {fusion_filename}"
                 })
                 
-            # Analyze images with LLM
-            analysis_result = self.analyze_images_with_llm(part_image_paths, fusion_path)
+            # Analyze images with both LLM models
+            analysis_results = self.analyze_images_with_both_models(part_image_paths, fusion_path)
             
-            if "error" in analysis_result:
+            # Check if both analyses failed
+            if "error" in analysis_results["opus"] and "error" in analysis_results["sonnet"]:
                 return jsonify({
                     "status": "error",
-                    "message": analysis_result["error"]
+                    "message": "Both model analyses failed"
                 })
                 
             # Return the analysis results
             return jsonify({
                 "status": "success",
-                "result": analysis_result
+                "results": analysis_results
             })
                 
         except Exception as e:

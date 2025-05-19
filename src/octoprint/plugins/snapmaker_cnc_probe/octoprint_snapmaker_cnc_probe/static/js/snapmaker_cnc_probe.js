@@ -10,6 +10,7 @@ $(function() {
         self.hasImages = ko.observable(false);
         self.hasFusionImage = ko.observable(false);
         self.hasAnalysisResult = ko.observable(false);
+        self.hasMultipleResults = ko.observable(false);
         
         self.image0Deg = ko.observable();
         self.image120Deg = ko.observable();
@@ -21,6 +22,13 @@ $(function() {
         self.alignmentAngle = ko.observable();
         self.confidence = ko.observable();
         self.explanation = ko.observable();
+        self.selectedModel = ko.observable("opus");
+        
+        // Results from both models
+        self.opusResult = ko.observable();
+        self.sonnetResult = ko.observable();
+        self.hasOpusResult = ko.observable(false);
+        self.hasSonnetResult = ko.observable(false);
         
         self.captureMultiAngleImages = function() {
             if (!self.loginState.isUser()) return;
@@ -129,17 +137,50 @@ $(function() {
                 contentType: "application/json",
                 data: JSON.stringify(data),
                 success: function(response) {
-                    if (response.status === "success" && response.result) {
-                        // Store the analysis results
-                        var result = response.result;
-                        self.alignmentAngle(result.alignment_angle);
-                        self.confidence(result.confidence);
-                        self.explanation(result.explanation);
+                    if (response.status === "success" && response.results) {
+                        // Store both model results
+                        var opusResult = response.results.opus;
+                        var sonnetResult = response.results.sonnet;
+                        
+                        self.hasMultipleResults(true);
+                        
+                        // Store Opus results if available
+                        if (!("error" in opusResult)) {
+                            self.opusResult(opusResult);
+                            self.hasOpusResult(true);
+                        }
+                        
+                        // Store Sonnet results if available
+                        if (!("error" in sonnetResult)) {
+                            self.sonnetResult(sonnetResult);
+                            self.hasSonnetResult(true);
+                        }
+                        
+                        // Determine which result to use as primary
+                        if (self.hasOpusResult() && self.selectedModel() === "opus") {
+                            // Use Opus result
+                            self.alignmentAngle(opusResult.alignment_angle);
+                            self.confidence(opusResult.confidence);
+                            self.explanation(opusResult.explanation);
+                        } else if (self.hasSonnetResult()) {
+                            // Use Sonnet result
+                            self.alignmentAngle(sonnetResult.alignment_angle);
+                            self.confidence(sonnetResult.confidence);
+                            self.explanation(sonnetResult.explanation);
+                            self.selectedModel("sonnet");
+                        } else if (self.hasOpusResult()) {
+                            // Fallback to Opus if Sonnet failed
+                            self.alignmentAngle(opusResult.alignment_angle);
+                            self.confidence(opusResult.confidence);
+                            self.explanation(opusResult.explanation);
+                            self.selectedModel("opus");
+                        }
+                        
                         self.hasAnalysisResult(true);
                         
                         new PNotify({
                             title: "Analysis Complete",
-                            text: "Alignment angle: " + result.alignment_angle.toFixed(2) + "° (Confidence: " + (result.confidence * 100).toFixed(0) + "%)",
+                            text: "Results available from both Claude models. Compare them to see which works better.",
                             type: "info"
                         });
                     } else {
@@ -160,6 +201,23 @@ $(function() {
                     self.isAnalyzing(false);
                 }
             });
+        };
+        
+        // Add a function to switch between models
+        self.selectModel = function(modelName) {
+            if (modelName === "opus" && self.hasOpusResult()) {
+                var result = self.opusResult();
+                self.alignmentAngle(result.alignment_angle);
+                self.confidence(result.confidence);
+                self.explanation(result.explanation);
+                self.selectedModel("opus");
+            } else if (modelName === "sonnet" && self.hasSonnetResult()) {
+                var result = self.sonnetResult();
+                self.alignmentAngle(result.alignment_angle);
+                self.confidence(result.confidence);
+                self.explanation(result.explanation);
+                self.selectedModel("sonnet");
+            }
         };
         
         self.applyRotation = function() {

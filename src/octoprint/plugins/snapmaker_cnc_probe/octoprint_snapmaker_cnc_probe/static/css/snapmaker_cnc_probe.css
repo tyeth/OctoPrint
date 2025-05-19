@@ -7,3 +7,19 @@
 #snapmaker_cnc_probe .image-container {
     text-align: center;
 }
+
+#snapmaker_cnc_probe .model-selector {
+    margin-bottom: 15px;
+}
+
+#snapmaker_cnc_probe .model-compare {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+
+#snapmaker_cnc_probe .model-info {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 5px;
+}

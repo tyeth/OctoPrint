@@ -45,10 +45,14 @@
     </div>
     
     <div class="control-group">
-        <label class="control-label">{{ _('Model Name') }}</label>
+        <label class="control-label">{{ _('Default LLM Model') }}</label>
         <div class="controls">
-            <input type="text" class="input-large" data-bind="value: settings.plugins.snapmaker_cnc_probe.llm_model">
-            <span class="help-block">{{ _('The vision-capable model to use for image analysis') }}</span>
+            <select class="input-large" data-bind="value: settings.plugins.snapmaker_cnc_probe.llm_model">
+                <option value="claude-3-opus-20240229">Claude 3 Opus (Best quality)</option>
+                <option value="claude-3-7-sonnet-20250219">Claude 3.7 Sonnet (Good balance)</option>
+                <option value="claude-3-haiku-20240307">Claude 3 Haiku (Fastest)</option>
+            </select>
+            <span class="help-block">{{ _('The plugin will always run both Claude 3 Opus and Claude 3.7 Sonnet in parallel. This setting just determines the default if one fails.') }}</span>
         </div>
     </div>
 </form>

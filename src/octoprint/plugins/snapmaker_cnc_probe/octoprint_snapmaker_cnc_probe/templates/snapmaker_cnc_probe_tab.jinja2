@@ -28,6 +28,22 @@
         <div class="control-group" data-bind="visible: hasAnalysisResult">
             <div class="alert alert-info">
                 <h4>Analysis Results</h4>
+                
+                <!-- Model selection when both are available -->
+                <div data-bind="visible: hasMultipleResults && hasOpusResult() && hasSonnetResult()">
+                    <div class="btn-group" style="margin-bottom: 10px;">
+                        <button class="btn" data-bind="click: function() { selectModel('opus'); }, css: {'btn-primary': selectedModel() === 'opus', 'active': selectedModel() === 'opus'}">
+                            Claude 3 Opus Results
+                        </button>
+                        <button class="btn" data-bind="click: function() { selectModel('sonnet'); }, css: {'btn-primary': selectedModel() === 'sonnet', 'active': selectedModel() === 'sonnet'}">
+                            Claude 3.7 Sonnet Results
+                        </button>
+                    </div>
+                    <p><small>Compare results from both AI models to see which works better for your application</small></p>
+                </div>
+                
+                <!-- Currently selected model info -->
+                <p>Model used: <strong data-bind="text: selectedModel() === 'opus' ? 'Claude 3 Opus' : 'Claude 3.7 Sonnet'"></strong></p>
                 <p>Required rotation angle: <strong data-bind="text: alignmentAngle().toFixed(2) + '°'"></strong></p>
                 <p>Confidence level: <strong data-bind="text: (confidence() * 100).toFixed(0) + '%'"></strong></p>
                 <p>Explanation: <span data-bind="text: explanation"></span></p>
