@@ -42,3 +42,4 @@ pypy
 venv*
 testconf*
 .auth
+.venv/
