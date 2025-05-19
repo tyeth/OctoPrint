@@ -6,14 +6,13 @@ __version__ = "0.1.0"
 import os
 import serial
 from datetime import datetime
-import cv2  # For OpenCV camera
-try:
-    import picamera  # Optional PiCamera support
-except ImportError:
-    picamera = None
 
+import requests
+import time
+import threading
+from tempfile import mkstemp
 
-from flask import abort, jsonify, request, url_for
+from flask import abort, jsonify, request, url_for, send_from_directory
 from flask_babel import gettext
 from werkzeug.exceptions import BadRequest
 from werkzeug.utils import secure_filename
@@ -32,46 +31,74 @@ class SnapmakerProbePlugin(octoprint.plugin.StartupPlugin,
                           octoprint.plugin.SettingsPlugin,
                           octoprint.plugin.AssetPlugin):
     
+    def capture_current_image(self, name):
+        """Capture an image using OctoPrint's configured webcam"""
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"{name}_{timestamp}.jpg"
+        filepath = os.path.join(self.get_image_folder(), filename)
+        
+        # Get webcam URL from OctoPrint settings
+        webcam_settings = self._settings.global_get(["webcam"])
+        snapshot_url = webcam_settings.get("snapshot", "")
+        
+        if not snapshot_url:
+            self._logger.error("No webcam snapshot URL configured in OctoPrint")
+            return None
+        
+        try:
+            self._logger.info(f"Taking snapshot from {snapshot_url}")
+            
+            # Some cameras need a warmup call
+            requests.get(snapshot_url, timeout=5)
+            time.sleep(0.5)  # Short delay to allow camera to stabilize
+            
+            # Take the actual image
+            response = requests.get(snapshot_url, timeout=5)
+            
+            if response.status_code == 200:
+                with open(filepath, "wb") as f:
+                    f.write(response.content)
+                self._logger.info(f"Snapshot saved to {filepath}")
+                return filepath
+            else:
+                self._logger.error(f"Failed to get snapshot, status code: {response.status_code}")
+                return None
+        except Exception as e:
+            self._logger.exception(f"Error taking snapshot: {str(e)}")
+            return None
+    
     def capture_multi_angle_images(self):
         """Capture images at multiple B-axis rotations"""
         images = []
         
         # Step 1: Capture image at current position (assumed to be 0°)
-        images.append(self.capture_current_image("angle_0"))
-        self._logger.info("Captured image at 0°")
+        filepath = self.capture_current_image("angle_0")
+        if filepath:
+            images.append(filepath)
+            self._logger.info("Captured image at 0°")
         
         # Step 2: Rotate B-axis 120° CCW and capture
         self._printer.commands("G0 B-120")
-        self._printer.commands("G4 P1000")  # Pause for 1 second to stabilize
-        images.append(self.capture_current_image("angle_120ccw"))
-        self._logger.info("Captured image at 120° CCW")
+        time.sleep(3)  # Allow more time for rotation to complete
+        filepath = self.capture_current_image("angle_120ccw")
+        if filepath:
+            images.append(filepath)
+            self._logger.info("Captured image at 120° CCW")
         
         # Step 3: Rotate B-axis 180° CW and capture
         self._printer.commands("G0 B60")
-        self._printer.commands("G4 P1000")
-        images.append(self.capture_current_image("angle_60cw"))
-        self._logger.info("Captured image at 60° CW")
+        time.sleep(3)
+        filepath = self.capture_current_image("angle_60cw")
+        if filepath:
+            images.append(filepath)
+            self._logger.info("Captured image at 60° CW")
         
         # Step 4: Return to 0°
         self._printer.commands("G0 B0")
+        time.sleep(2)
         self._logger.info("Returned to 0°")
         
         return images
-    
-    def capture_current_image(self, name):
-        """Capture an image from the camera and save it"""
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        filename = f"{name}_{timestamp}.jpg"
-        filepath = os.path.join(self.get_image_folder(), filename)
-        
-        # Use camera module to capture
-        camera = self._settings.get(["camera_module"])
-        if camera == "picamera":
-            self._capture_with_picamera(filepath)
-        else:
-            self._capture_with_opencv(filepath)
-            
-        return filepath
     
 
     def initialize_gauge_connection(self):
@@ -165,11 +192,9 @@ class SnapmakerProbePlugin(octoprint.plugin.StartupPlugin,
     
     def get_settings_defaults(self):
         return {
-            "camera_module": "opencv",  # or "picamera"
-            "camera_index": 0,
+            "rotation_wait_time": 3,  # seconds to wait after rotation
             "gauge_port": "/dev/ttyUSB0",
             "gauge_baud": 9600,
-            "image_quality": 85
         }
     
     def get_template_configs(self):
@@ -191,60 +216,38 @@ class SnapmakerProbePlugin(octoprint.plugin.StartupPlugin,
             if not os.path.exists(self.image_folder):
                 os.makedirs(self.image_folder)
         return self.image_folder
-        
-    def _capture_with_opencv(self, filepath):
-        """Capture an image using OpenCV"""
-        camera_index = self._settings.get_int(["camera_index"])
-        quality = self._settings.get_int(["image_quality"])
-        
-        cap = cv2.VideoCapture(camera_index)
-        if not cap.isOpened():
-            self._logger.error(f"Failed to open camera at index {camera_index}")
-            return False
-            
-        ret, frame = cap.read()
-        if not ret:
-            self._logger.error("Failed to capture image")
-            cap.release()
-            return False
-            
-        cv2.imwrite(filepath, frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
-        cap.release()
-        return True
-        
-    def _capture_with_picamera(self, filepath):
-        """Capture an image using PiCamera"""
-        if picamera is None:
-            self._logger.error("PiCamera not available")
-            return False
-            
-        quality = self._settings.get_int(["image_quality"])
-        
-        try:
-            with picamera.PiCamera() as camera:
-                # Allow camera to warm up
-                camera.start_preview()
-                time.sleep(2)
-                camera.capture(filepath, quality=quality)
-                camera.stop_preview()
-            return True
-        except Exception as e:
-            self._logger.error(f"PiCamera error: {str(e)}")
-            return False
+
             
     # API endpoints
     @octoprint.plugin.BlueprintPlugin.route("/capture", methods=["POST"])
-    @Permissions.PLUGIN_SNAPMAKER_PROBE_CAPTURE.require(403)
     def api_capture_images(self):
         try:
+            # Verify that OctoPrint has a webcam configured
+            webcam_settings = self._settings.global_get(["webcam"])
+            snapshot_url = webcam_settings.get("snapshot", "")
+            
+            if not snapshot_url:
+                return jsonify({
+                    "status": "error", 
+                    "message": "No webcam configured in OctoPrint. Please configure a webcam in OctoPrint settings first."
+                })
+            
+            # Now capture the images
             images = self.capture_multi_angle_images()
+            
+            if not images or len(images) < 3:
+                return jsonify({
+                    "status": "error", 
+                    "message": f"Failed to capture all images. Only captured {len(images) if images else 0} of 3 images."
+                })
+            
             # Convert file paths to URLs for the frontend
             image_urls = [f"/plugin/snapmaker_cnc_probe/image/{os.path.basename(img)}" for img in images]
             return jsonify({"status": "success", "images": image_urls})
         except Exception as e:
-            self._logger.error(f"Error in capture: {str(e)}")
+            self._logger.exception(f"Error in capture: {str(e)}")
             return jsonify({"status": "error", "message": str(e)})
-            
+
     @octoprint.plugin.BlueprintPlugin.route("/image/<filename>", methods=["GET"])
     def get_image(self, filename):
         # Serve image files from the plugin's image folder
