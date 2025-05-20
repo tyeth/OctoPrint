@@ -19,9 +19,9 @@ $(function() {
         self.fusionImagePath = ko.observable();
         
         // Analysis results
-        self.alignmentAngle = ko.observable();
-        self.confidence = ko.observable();
-        self.explanation = ko.observable();
+        self.alignmentAngle = ko.observable(0);
+        self.confidence = ko.observable(0);
+        self.explanation = ko.observable("");
         self.selectedModel = ko.observable("opus");
         
         // Results from both models
